@@ -32,16 +32,10 @@ dyaml_src = [
     'source/dyaml/stdsumtype.d',
     'source/dyaml/style.d',
     'source/dyaml/tagdirective.d',
-    'source/dyaml/test/common.d',
-    'source/dyaml/test/compare.d',
     'source/dyaml/test/constructor.d',
-    'source/dyaml/test/emitter.d',
-    'source/dyaml/test/errors.d',
-    'source/dyaml/test/inputoutput.d',
-    'source/dyaml/test/reader.d',
     'source/dyaml/test/representer.d',
-    'source/dyaml/test/resolver.d',
-    'source/dyaml/test/tokens.d',
+    'source/dyaml/test/suite.d',
+    'source/dyaml/test/suitehelpers.d',
     'source/dyaml/token.d'
 ]
 install_subdir('source/dyaml', install_dir: 'include/d/yaml/')

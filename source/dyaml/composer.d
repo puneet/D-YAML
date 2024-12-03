@@ -29,15 +29,6 @@ import dyaml.resolver;
 
 
 package:
-/**
- * Exception thrown at composer errors.
- *
- * See_Also: MarkedYAMLException
- */
-class ComposerException : MarkedYAMLException
-{
-    mixin MarkedExceptionCtors;
-}
 
 ///Composes YAML documents from events provided by a Parser.
 struct Composer
@@ -70,7 +61,7 @@ struct Composer
          * Params:  parser      = Parser to provide YAML events.
          *          resolver    = Resolver to resolve tags (data types).
          */
-        this(Parser parser, Resolver resolver) @safe
+        this(Parser parser, Resolver resolver) @safe nothrow
         {
             parser_ = parser;
             resolver_ = resolver;
@@ -99,6 +90,22 @@ struct Composer
                    "get. use checkNode() to determine if there is a node.");
 
             return composeDocument();
+        }
+
+        /// Set file name.
+        ref inout(string) name() inout @safe return pure nothrow @nogc
+        {
+            return parser_.name;
+        }
+        /// Get a mark from the current reader position
+        Mark mark() const @safe pure nothrow @nogc
+        {
+            return parser_.mark;
+        }
+
+        /// Get resolver
+        ref Resolver resolver() @safe return pure nothrow @nogc {
+            return resolver_;
         }
 
     private:
@@ -158,8 +165,8 @@ struct Composer
                 //it's not finished, i.e. we're currently composing it
                 //and trying to use it recursively here.
                 enforce(anchors_[anchor] != Node(),
-                        new ComposerException("Found recursive alias: " ~ anchor,
-                                              event.startMark));
+                        new ComposerException(text("Found recursive alias: ", anchor),
+                              event.startMark, "defined here", anchors_[anchor].startMark));
 
                 return anchors_[anchor];
             }
@@ -168,8 +175,8 @@ struct Composer
             const anchor = event.anchor;
             if((anchor !is null) && (anchor in anchors_) !is null)
             {
-                throw new ComposerException("Found duplicate anchor: " ~ anchor,
-                                            event.startMark);
+                throw new ComposerException(text("Found duplicate anchor: ", anchor),
+                    event.startMark, "defined here", anchors_[anchor].startMark);
             }
 
             Node result;
@@ -177,7 +184,9 @@ struct Composer
             //used to detect duplicate and recursive anchors.
             if(anchor !is null)
             {
-                anchors_[anchor] = Node();
+                Node tempNode;
+                tempNode.startMark_ = event.startMark;
+                anchors_[anchor] = tempNode;
             }
 
             switch (parser_.front.id)
@@ -265,12 +274,10 @@ struct Composer
             {
                 //this is Composer, but the code is related to Constructor.
                 throw new ConstructorException("While constructing a mapping, " ~
-                                               "expected a mapping or a list of " ~
-                                               "mappings for merging, but found: " ~
-                                               text(node.type) ~
-                                               " NOTE: line/column shows topmost parent " ~
-                                               "to which the content is being merged",
-                                               startMark, endMark);
+                   "expected a mapping or a list of " ~
+                   "mappings for merging, but found: " ~
+                   text(node.type),
+                   endMark, "mapping started here", startMark);
             }
 
             ensureAppendersExist(pairAppenderLevel, nodeAppenderLevel);
@@ -360,14 +367,14 @@ struct Composer
             }
 
             auto sorted = pairAppender.data.dup.sort!((x,y) => x.key > y.key);
-            if (sorted.length) {
+            if (sorted.length)
+            {
                 foreach (index, const ref value; sorted[0 .. $ - 1].enumerate)
-                    if (value.key == sorted[index + 1].key) {
-                        const message = () @trusted {
-                            return format("Key '%s' appears multiple times in mapping (first: %s)",
-                                          value.key.get!string, value.key.startMark);
-                        }();
-                        throw new ComposerException(message, sorted[index + 1].key.startMark);
+                    if (value.key == sorted[index + 1].key)
+                    {
+                        throw new ComposerException(
+                            text("Key '", value.key.get!string, "' appears multiple times in mapping"),
+                                sorted[index + 1].key.startMark, "defined here", value.key.startMark);
                     }
             }
 
@@ -379,23 +386,4 @@ struct Composer
             pairAppender.clear();
             return node;
         }
-}
-
-// Provide good error message on multiple keys (which JSON supports)
-@safe unittest
-{
-    import dyaml.loader : Loader;
-
-    const str = `{
-    "comment": "This is a common technique",
-    "name": "foobar",
-    "comment": "To write down comments pre-JSON5"
-}`;
-
-    try
-        auto node = Loader.fromString(str).load();
-    catch (ComposerException exc)
-        assert(exc.message() ==
-               "Key 'comment' appears multiple times in mapping " ~
-               "(first: file <unknown>,line 2,column 5)\nfile <unknown>,line 4,column 5");
 }

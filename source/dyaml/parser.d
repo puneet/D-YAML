@@ -88,16 +88,6 @@ import dyaml.tagdirective;
  */
 
 
-/**
- * Marked exception thrown at parser errors.
- *
- * See_Also: MarkedYAMLException
- */
-class ParserException : MarkedYAMLException
-{
-    mixin MarkedExceptionCtors;
-}
-
 package:
 /// Generates events from tokens provided by a Scanner.
 ///
@@ -171,6 +161,17 @@ final class Parser
         {
             currentEvent_.id = EventID.invalid;
             ensureState();
+        }
+
+        /// Set file name.
+        ref inout(string) name() inout @safe return pure nothrow @nogc
+        {
+            return scanner_.name;
+        }
+        /// Get a mark from the current reader position
+        Mark mark() const @safe pure nothrow @nogc
+        {
+            return scanner_.mark;
         }
 
     private:
@@ -508,9 +509,9 @@ final class Parser
             }
 
             const token = scanner_.front;
-            throw new ParserException("While parsing a " ~ (block ? "block" : "flow") ~ " node",
-                            startMark, "expected node content, but found: "
-                            ~ token.idString, token.startMark);
+            throw new ParserException("While parsing a " ~ (block ? "block" : "flow")
+                ~ " node, expected node content, but found: " ~ token.idString,
+                token.startMark, "node started here", startMark);
         }
 
         /// Handle escape sequences in a double quoted scalar.
@@ -618,8 +619,8 @@ final class Parser
                 }
                 //handle must be in tagDirectives_
                 enforce(replacement !is null,
-                        new ParserException("While parsing a node", startMark,
-                                  "found undefined tag handle: " ~ handle, tagMark));
+                    new ParserException("While parsing a node, found undefined tag handle: "
+                        ~ handle, tagMark, "node started here", startMark));
                 return replacement ~ suffix;
             }
             return suffix;
@@ -658,9 +659,8 @@ final class Parser
             if(scanner_.front.id != TokenID.blockEnd)
             {
                 const token = scanner_.front;
-                throw new ParserException("While parsing a block collection", marks_.data.back,
-                                "expected block end, but found " ~ token.idString,
-                                token.startMark);
+                throw new ParserException("While parsing a block sequence, expected block end, but found: "
+                    ~ token.idString, token.startMark, "sequence started here", marks_.data.back);
             }
 
             state_ = popState();
@@ -730,9 +730,8 @@ final class Parser
             if(scanner_.front.id != TokenID.blockEnd)
             {
                 const token = scanner_.front;
-                throw new ParserException("While parsing a block mapping", marks_.data.back,
-                                "expected block end, but found: " ~ token.idString,
-                                token.startMark);
+                throw new ParserException("While parsing a block mapping, expected block end, but found: "
+                    ~ token.idString, token.startMark, "mapping started here", marks_.data.back);
             }
 
             state_ = popState();
@@ -797,9 +796,8 @@ final class Parser
                     else
                     {
                         const token = scanner_.front;
-                        throw new ParserException("While parsing a flow sequence", marks_.data.back,
-                                        "expected ',' or ']', but got: " ~
-                                        token.idString, token.startMark);
+                        throw new ParserException("While parsing a flow sequence, expected ',' or ']', but got: " ~
+                            token.idString, token.startMark, "sequence started here", marks_.data.back);
                     }
                 }
 
@@ -912,9 +910,8 @@ final class Parser
                     else
                     {
                         const token = scanner_.front;
-                        throw new ParserException("While parsing a flow mapping", marks_.data.back,
-                                        "expected ',' or '}', but got: " ~
-                                        token.idString, token.startMark);
+                        throw new ParserException("While parsing a flow mapping, expected ',' or '}', but got: "
+                            ~ token.idString, token.startMark, "mapping started here", marks_.data.back);
                     }
                 }
 
